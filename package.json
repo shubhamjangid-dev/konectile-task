@@ -1,0 +1,46 @@
+{
+  "name": "noaclub_backend",
+  "version": "1.0.0",
+  "description": "APis for noaclub inventory management system",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon app.js"
+  },
+  "keywords": [
+    "noaclub",
+    "ims"
+  ],
+  "author": "ziacodes",
+  "license": "ISC",
+  "dependencies": {
+    "argon2": "^0.41.1",
+    "axios": "^1.10.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-async-errors": "^3.1.1",
+    "express-mongo-sanitize": "^2.2.0",
+    "express-rate-limit": "^7.5.0",
+    "geoip-lite": "^1.4.10",
+    "jsonwebtoken": "^9.0.2",
+    "luxon": "^3.6.1",
+    "moment": "^2.30.1",
+    "mongoose": "^8.11.0",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.10.0",
+    "redis": "^4.0.0",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "twilio": "^5.5.0",
+    "ua-parser-js": "^2.0.3",
+    "uuid": "^11.1.0",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}

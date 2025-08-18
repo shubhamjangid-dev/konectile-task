@@ -1,0 +1,555 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Konectile ims Documentation",
+    "version": "1.0.0",
+    "description": "Comprehensive API documentation for IMS backend services",
+    "contact": {
+      "name": "API Support",
+      "url": "https://konectile.com",
+      "email": "support@konectile.com"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "Development server"
+    },
+    {
+      "url": "https://noaims.onrender.com",
+      "description": "Production server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Authentication",
+      "description": "User authentication endpoints"
+    },
+    {
+      "name": "Member Profiles",
+      "description": "Club member management"
+    },
+    {
+      "name": "Events",
+      "description": "Event management"
+    },
+    {
+      "name": "Inventory",
+      "description": "Club inventory management"
+    },
+    {
+      "name": "Cache",
+      "description": "Cache management endpoints"
+    }
+  ],
+  "paths": {
+    "/api/v1/auth/user-member-login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Authenticate user",
+        "description": "Authenticate user with email and password",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateLimitResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/club-member": {
+      "get": {
+        "tags": ["Member Profiles"],
+        "summary": "Get all club members (cached)",
+        "description": "Returns a list of all club members with pagination support",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            },
+            "description": "Page number"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            },
+            "description": "Items per page"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of club members",
+            "headers": {
+              "X-Cache": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cache status (HIT/MISS)"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Member Profiles"],
+        "summary": "Create a new club member",
+        "description": "Add a new member to the club database",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Member created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/event-management": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "Get all events (cached)",
+        "description": "Returns a list of all events with pagination support",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            },
+            "description": "Page number"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            },
+            "description": "Items per page"
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": ["upcoming", "past", "cancelled", "all"],
+              "default": "upcoming"
+            },
+            "description": "Filter events by status"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cache/stats": {
+      "get": {
+        "tags": ["Cache"],
+        "summary": "Get cache statistics",
+        "description": "Returns Redis cache statistics and metrics",
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Cache statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CacheStatsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "user@example.com"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "example": "password123"
+          }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "token": {
+            "type": "string",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          },
+          "user": {
+            "$ref": "#/components/schemas/User"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string",
+            "example": "5f8d0d55b54764421b7156c1"
+          },
+          "name": {
+            "type": "string",
+            "example": "John Doe"
+          },
+          "email": {
+            "type": "string",
+            "example": "john@example.com"
+          },
+          "role": {
+            "type": "string",
+            "example": "admin"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Member": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string",
+            "example": "5f8d0d55b54764421b7156c2"
+          },
+          "name": {
+            "type": "string",
+            "example": "Jane Smith"
+          },
+          "membershipId": {
+            "type": "string",
+            "example": "MEM12345"
+          },
+          "contact": {
+            "type": "string",
+            "example": "+1234567890"
+          },
+          "status": {
+            "type": "string",
+            "example": "active"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "MemberListResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "count": {
+            "type": "integer",
+            "example": 1
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Member"
+            }
+          },
+          "cache": {
+            "type": "boolean",
+            "description": "Indicates if response was served from cache",
+            "example": true
+          }
+        }
+      },
+      "MemberCreateRequest": {
+        "type": "object",
+        "required": ["name", "membershipId", "contact"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Jane Smith"
+          },
+          "membershipId": {
+            "type": "string",
+            "example": "MEM12345"
+          },
+          "contact": {
+            "type": "string",
+            "example": "+1234567890"
+          },
+          "status": {
+            "type": "string",
+            "example": "active",
+            "default": "active"
+          }
+        }
+      },
+      "MemberResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/Member"
+          }
+        }
+      },
+      "Event": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string",
+            "example": "5f8d0d55b54764421b7156c3"
+          },
+          "title": {
+            "type": "string",
+            "example": "Annual Gala"
+          },
+          "description": {
+            "type": "string",
+            "example": "Annual member gala dinner"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "location": {
+            "type": "string",
+            "example": "Main Hall"
+          },
+          "status": {
+            "type": "string",
+            "example": "upcoming"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "EventListResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "count": {
+            "type": "integer",
+            "example": 1
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Event"
+            }
+          },
+          "cache": {
+            "type": "boolean",
+            "description": "Indicates if response was served from cache",
+            "example": true
+          }
+        }
+      },
+      "CacheStatsResponse": {
+        "type": "object",
+        "properties": {
+          "hits": {
+            "type": "integer",
+            "example": 42
+          },
+          "misses": {
+            "type": "integer",
+            "example": 15
+          },
+          "hitRate": {
+            "type": "number",
+            "format": "float",
+            "example": 0.7368
+          },
+          "keys": {
+            "type": "integer",
+            "example": 8
+          },
+          "memoryUsage": {
+            "type": "string",
+            "example": "2.5MB"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "message": {
+            "type": "string",
+            "example": "Invalid credentials"
+          },
+          "error": {
+            "type": "string",
+            "example": "Unauthorized"
+          }
+        }
+      },
+      "RateLimitResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "message": {
+            "type": "string",
+            "example": "Too many requests, please try again later"
+          },
+          "limit": {
+            "type": "integer",
+            "example": 20
+          },
+          "remaining": {
+            "type": "integer",
+            "example": 0
+          },
+          "resetTime": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}
