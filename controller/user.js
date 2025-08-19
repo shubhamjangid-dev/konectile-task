@@ -1,126 +1,124 @@
-const PasswordResetToken = require('../models/PasswordResetToken');
-const User = require('../models/user');
-const MemberProfile = require('../models/memberProfile');
-const { generateOTP, generateMailTransporter } = require('../utils/email');
-const { generateOTPVerificationEmail, generatePasswordChangedEmail } = require('../utils/EmailTemplate');
-const { sendError } = require('../utils/helper');
-const argon2 = require('argon2');
-const jwt = require('jsonwebtoken')
- 
+const PasswordResetToken = require("../models/PasswordResetToken");
+const User = require("../models/user");
+const MemberProfile = require("../models/memberProfile");
+const { generateOTP, generateMailTransporter } = require("../utils/email");
+const { generateOTPVerificationEmail, generatePasswordChangedEmail } = require("../utils/EmailTemplate");
+const { sendError } = require("../utils/helper");
+const argon2 = require("argon2");
+const jwt = require("jsonwebtoken");
+
 // Add a new user
 exports.addUser = async (req, res) => {
   try {
-
     const { username, name, email, password, roles, allowed_device_fingerprint, allowed_latitude, allowed_longitude } = req.body;
 
-    if(!username || !name || !email || !password) 
-      return sendError(res, "Required field can't be empty.");
+    if (!username || !name || !email || !password) return sendError(res, "Required field can't be empty.");
 
     const existingUser = await User.findOne({ username });
     if (existingUser) {
       return sendError(res, "username already exists");
     }
- 
+
     // Create a new user
     const newUser = new User({
       username,
       name,
       email,
-      password, 
+      password,
       roles,
-      allowed_device_fingerprint: roles === 'superadmin' ? allowed_device_fingerprint : undefined,
-      allowed_latitude: roles === 'superadmin' ? allowed_latitude : undefined,
-      allowed_longitude: roles === 'superadmin' ? allowed_longitude : undefined,
+      allowed_device_fingerprint: roles === "superadmin" ? allowed_device_fingerprint : undefined,
+      allowed_latitude: roles === "superadmin" ? allowed_latitude : undefined,
+      allowed_longitude: roles === "superadmin" ? allowed_longitude : undefined,
     });
- 
+
     // Save the user to the database
     await newUser.save();
- 
+
     // Respond with the created user
-    res.status(201).json({ message: 'User created successfully', user: newUser });
+    res.status(201).json({ message: "User created successfully", user: newUser });
   } catch (error) {
-    console.error('Error creating user:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error creating user:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
- 
+
 // Delete a user (only superadmin can delete)
 exports.deleteUser = async (req, res) => {
   try {
     const { userId } = req.params;
-    const {userInfo} = req.body;
+    const { userInfo } = req.body;
 
     // Check if the user ID is provided
     if (!userId) {
-      return res.status(400).json({ message: 'User ID is required' });
+      return res.status(400).json({ message: "User ID is required" });
     }
     // Check if the user exists
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
     // Check if the user is trying to delete themselves
     if (userInfo.id.toString() === userId) {
-      return res.status(403).json({ message: 'You cannot delete yourself' });
+      return res.status(403).json({ message: "You cannot delete yourself" });
     }
 
     // Check if the user to be deleted is a superadmin
-    if (user.roles.toString() === 'superadmin' && userInfo.roles.toString() !== 'superadmin') {
-      return res.status(403).json({ message: 'You cannot delete a superadmin user' });
+    if (user.roles.toString() === "superadmin" && userInfo.roles.toString() !== "superadmin") {
+      return res.status(403).json({ message: "You cannot delete a superadmin user" });
     }
- 
+
     // Find and delete the user by ID
     const deletedUser = await User.findByIdAndDelete(userId);
     if (!deletedUser) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
- 
+
     // Respond with the deleted user
-    res.status(200).json({ message: 'User deleted successfully', user: deletedUser });
+    res.status(200).json({ message: "User deleted successfully", user: deletedUser });
   } catch (error) {
-    console.error('Error deleting user:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error deleting user:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
- 
+
 // Update a user (superadmin and admin can update)
 exports.updateUser = async (req, res) => {
   try {
     const { id } = req.params;
     const { username, password, roles, allowed_device_fingerprint, allowed_latitude, allowed_longitude } = req.body;
- 
+
     // Find the user by ID
     const user = await User.findById(id);
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
- 
+
     // Check if the requester is a superadmin or admin
-    if (req.user.roles !== 'superadmin' && req.user.roles !== 'admin') {
-      return res.status(403).json({ message: 'Only superadmin and admin can update users' });
+    if (req.user.roles !== "superadmin" && req.user.roles !== "admin") {
+      return res.status(403).json({ message: "Only superadmin and admin can update users" });
     }
- 
+
     // Only superadmin can change the roles of other users
-    if (roles && req.user.roles !== 'superadmin') {
-      return res.status(403).json({ message: 'Only superadmin can change the roles of users' });
+    if (roles && req.user.roles !== "superadmin") {
+      return res.status(403).json({ message: "Only superadmin can change the roles of users" });
     }
- 
+
     // Update user fields
     user.username = username || user.username;
     user.password = password || user.password; // Hash the password in production
     user.roles = roles || user.roles;
-    user.allowed_device_fingerprint = roles === 'superadmin' ? allowed_device_fingerprint : user.allowed_device_fingerprint;
-    user.allowed_latitude = roles === 'superadmin' ? allowed_latitude : user.allowed_latitude;
-    user.allowed_longitude = roles === 'superadmin' ? allowed_longitude : user.allowed_longitude;
- 
+    user.allowed_device_fingerprint = roles === "superadmin" ? allowed_device_fingerprint : user.allowed_device_fingerprint;
+    user.allowed_latitude = roles === "superadmin" ? allowed_latitude : user.allowed_latitude;
+    user.allowed_longitude = roles === "superadmin" ? allowed_longitude : user.allowed_longitude;
+
     // Save the updated user
     await user.save();
- 
+
     // Respond with the updated user
-    res.status(200).json({ message: 'User updated successfully', user });
+    res.status(200).json({ message: "User updated successfully", user });
   } catch (error) {
-    console.error('Error updating user:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error updating user:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -128,80 +126,72 @@ exports.updateUser = async (req, res) => {
 exports.getUserByID = async (req, res) => {
   try {
     const { id } = req.body;
-    console.log(id)
+    console.log(id);
 
-    // check username 
+    // check username
     if (!id) {
-      return res.status(400).json({ message: 'id is required' });
+      return res.status(400).json({ message: "id is required" });
     }
 
     const isUserExist = await User.findById(id);
     if (!isUserExist) {
-      return res.status(400).json({ message: 'No user found!' });
+      return res.status(400).json({ message: "No user found!" });
     }
     // Respond with the  user
-    res.status(200).json({ message: 'User fetched successfully', user: isUserExist });
- 
+    res.status(200).json({ message: "User fetched successfully", user: isUserExist });
   } catch (error) {
-    console.error('Error deleting user:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error deleting user:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 // get user role
 exports.getUserRole = async (req, res) => {
   try {
-    const { username } = req.body; 
+    const { username } = req.body;
 
     // Check username
     if (!username) {
-      return res.status(400).json({ success: false, error: 'username is required' });
+      return res.status(400).json({ success: false, error: "username is required" });
     }
 
-    const isUserExist = await User.findOne({ username }).select('roles');
+    const isUserExist = await User.findOne({ username }).select("roles");
     if (!isUserExist) {
-      return res.status(404).json({ success: false, message: 'No user found!' });
+      return res.status(404).json({ success: false, message: "No user found!" });
     }
 
     // Respond with the user role
-    res.status(200).json({ success: true, message: 'User Role fetched successfully', userRole: isUserExist.roles });
+    res.status(200).json({ success: true, message: "User Role fetched successfully", userRole: isUserExist.roles });
   } catch (error) {
-    console.error('Error fetching user role:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    console.error("Error fetching user role:", error);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
 exports.getAllApplicationUser = async (req, res) => {
   try {
-
     const applicationUser = await User.find();
-    if(!applicationUser) return sendError(res, "No user exist!")
+    if (!applicationUser) return sendError(res, "No user exist!");
 
     // Respond with the user role
-    res.status(200).json({ success: true, message: 'Application user fetch successfully.', user:applicationUser });
+    res.status(200).json({ success: true, message: "Application user fetch successfully.", user: applicationUser });
   } catch (error) {
-    console.error('Error fetching user role:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    console.error("Error fetching user role:", error);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
- 
 
 // Helper function example
 function generateTempToken(userId) {
-  return jwt.sign(
-    { userId, purpose: 'password_reset' },
-    process.env.SECRET_KEY,
-    { expiresIn: '5m' }
-  );
+  return jwt.sign({ userId, purpose: "password_reset" }, process.env.SECRET_KEY, { expiresIn: "5m" });
 }
-
 
 // Helper to find user or member by email, returns { user, type } or null
 async function findUserByEmail(email) {
   let user = await MemberProfile.findOne({ Email: email });
-  if (user) return { user, type: 'member' };
+  if (user) return { user, type: "member" };
   user = await User.findOne({ email });
-  if (user) return { user, type: 'user' };
+  if (user) return { user, type: "user" };
   return null;
 }
 
@@ -228,7 +218,7 @@ async function createAndSendOTP(user, emailField) {
 exports.resetPassword = async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email) return sendError(res, 'Email is missing!', 400);
+    if (!email) return sendError(res, "Email is missing!", 400);
 
     const found = await findUserByEmail(email);
     if (!found) {
@@ -238,14 +228,14 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    await createAndSendOTP(found.user, found.type === 'member' ? 'Email' : 'email');
+    await createAndSendOTP(found.user, found.type === "member" ? "Email" : "email");
 
     return res.json({
       message: "If this email exists in our system, you'll receive an OTP shortly",
     });
   } catch (error) {
-    console.error('Password reset error:', error);
-    return sendError(res, 'Something went wrong. Please try again later.', 500);
+    console.error("Password reset error:", error);
+    return sendError(res, "Something went wrong. Please try again later.", 500);
   }
 };
 
@@ -296,11 +286,7 @@ exports.verifyOTP = async (req, res) => {
     });
   } catch (error) {
     console.error("OTP verification error:", error);
-    return sendError(
-      res,
-      error.message || "Internal server error",
-      error.status || 500
-    );
+    return sendError(res, error.message || "Internal server error", error.status || 500);
   }
 };
 
@@ -318,7 +304,7 @@ async function updatePasswordAndNotify(user, newPassword, emailField, nameField,
   }
 
   // Update password - make sure to hash in the model middleware if applicable
-  if ('password' in user) {
+  if ("password" in user) {
     user.password = newPassword;
   } else {
     user.Password = newPassword;
@@ -356,7 +342,7 @@ exports.changePassword = async (req, res) => {
   try {
     // Verify temp token
     const decoded = jwt.verify(tempToken, process.env.SECRET_KEY);
-    if (decoded.purpose !== 'password_reset') {
+    if (decoded.purpose !== "password_reset") {
       return sendError(res, "Invalid verification token", 401);
     }
 
@@ -371,18 +357,11 @@ exports.changePassword = async (req, res) => {
 
     await checkPasswordStrength(newPassword);
 
-    await updatePasswordAndNotify(
-      found.user,
-      newPassword,
-      found.type === 'member' ? 'Email' : 'email',
-      found.type === 'member' ? 'Name' : 'name',
-      res
-    );
-
+    await updatePasswordAndNotify(found.user, newPassword, found.type === "member" ? "Email" : "email", found.type === "member" ? "Name" : "name", res);
   } catch (error) {
     console.error("Password change error:", error);
 
-    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+    if (error.name === "JsonWebTokenError" || error.name === "TokenExpiredError") {
       return sendError(res, "Invalid or expired verification token", 401);
     }
 
@@ -393,6 +372,3 @@ exports.changePassword = async (req, res) => {
     return sendError(res, "Failed to reset password. Please try again.", 500);
   }
 };
-
-
- 

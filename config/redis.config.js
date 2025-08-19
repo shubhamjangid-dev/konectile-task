@@ -1,17 +1,17 @@
-const { createClient } = require('redis');
-const logger = require('../utils/logger');
+const { createClient } = require("redis");
+const logger = require("../utils/logger");
 
 const redisConfig = {
-  url: process.env.REDIS_URL || 'redis://localhost:6379',
+  url: process.env.REDIS_URL || "redis://localhost:6379",
   socket: {
-    reconnectStrategy: (retries) => {
+    reconnectStrategy: retries => {
       if (retries > 10) {
-        logger.error('Too many retries on Redis. Connection Terminated');
-        return new Error('Too many retries');
+        logger.error("Too many retries on Redis. Connection Terminated");
+        return new Error("Too many retries");
       }
       return Math.min(retries * 100, 5000);
-    }
-  }
+    },
+  },
 };
 
 const redisClient = createClient(redisConfig);
@@ -21,11 +21,11 @@ const originalRedisMethods = {
   get: redisClient.get.bind(redisClient),
   setEx: redisClient.setEx.bind(redisClient),
   del: redisClient.del.bind(redisClient),
-  keys: redisClient.keys.bind(redisClient)
+  keys: redisClient.keys.bind(redisClient),
 };
 
 // Override methods with error handling
-redisClient.get = async (key) => {
+redisClient.get = async key => {
   try {
     return await originalRedisMethods.get(key);
   } catch (err) {
@@ -43,7 +43,7 @@ redisClient.setEx = async (key, ttl, value) => {
   }
 };
 
-redisClient.del = async (key) => {
+redisClient.del = async key => {
   try {
     return await originalRedisMethods.del(key);
   } catch (err) {
@@ -52,7 +52,7 @@ redisClient.del = async (key) => {
   }
 };
 
-redisClient.keys = async (pattern) => {
+redisClient.keys = async pattern => {
   try {
     return await originalRedisMethods.keys(pattern);
   } catch (err) {
@@ -62,19 +62,19 @@ redisClient.keys = async (pattern) => {
 };
 
 // Connection events
-redisClient.on('connect', () => logger.info('Redis client connected'));
-redisClient.on('ready', () => logger.info('Redis client ready'));
-redisClient.on('error', (err) => logger.error('Redis client error:', err));
-redisClient.on('end', () => logger.info('Redis client disconnected'));
-redisClient.on('reconnecting', () => logger.info('Redis client reconnecting'));
+redisClient.on("connect", () => logger.info("Redis client connected"));
+redisClient.on("ready", () => logger.info("Redis client ready"));
+redisClient.on("error", err => logger.error("Redis client error:", err));
+redisClient.on("end", () => logger.info("Redis client disconnected"));
+redisClient.on("reconnecting", () => logger.info("Redis client reconnecting"));
 
 // Connect to Redis
 const connectRedis = async () => {
   try {
     await redisClient.connect();
-    logger.info('Redis connection established');
+    logger.info("Redis connection established");
   } catch (err) {
-    logger.error('Redis connection failed:', err);
+    logger.error("Redis connection failed:", err);
     process.exit(1);
   }
 };
