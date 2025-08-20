@@ -1,0 +1,20 @@
+# "org" ensures this Service is used with the correct Serverless Framework Access Key.
+org: shubhamjangir
+# "app" enables Serverless Framework Dashboard features and sharing them with other Services.
+app: konectile
+# "service" is the name of this project. This will also be added to your AWS resource names.
+service: konectile
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: ap-south-1
+  # Uncomment to easily set up a custom domain. Read the docs for more details:
+  # https://www.serverless.com/framework/docs/providers/aws/guide/domains
+  # domain: api.example.com
+
+functions:
+  api:
+    handler: handler.handler
+    events:
+      - httpApi: "*"

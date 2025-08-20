@@ -1,67 +1,59 @@
-const express = require('express');
-const morgan = require('morgan');
-const rateLimit = require('express-rate-limit');
-const { errorHandler } = require('./middleware/errorhandler');
-require('express-async-errors');
-const cookieParser = require('cookie-parser');
-const cors = require('cors')
-require('dotenv').config();
-require('./db')
-const path = require('path');
+const express = require("express");
+const morgan = require("morgan");
+const rateLimit = require("express-rate-limit");
+const { errorHandler } = require("./middleware/errorhandler");
+require("express-async-errors");
+const cookieParser = require("cookie-parser");
+const cors = require("cors");
+require("dotenv").config();
+require("./db");
+const path = require("path");
 
-const { initializeMonthlyReports } = require('./controller/member');
-require('./services/renderPayment');
-
+const { initializeMonthlyReports } = require("./controller/member");
+require("./services/renderPayment");
 
 // swagger api
-const swaggerJsdoc = require('swagger-jsdoc');
-const swaggerUi = require('swagger-ui-express');
+const swaggerJsdoc = require("swagger-jsdoc");
+const swaggerUi = require("swagger-ui-express");
 
 // Cache imports
-const { connectRedis } = require('./config/redis.config');
-const { scheduleCacheWarming } = require('./utils/cacheWarming.util');
-const cacheMiddleware = require('./middleware/cache.middleware');
-const cacheResponse = require('./middleware/cache.middleware');
-const { trackCacheStats, getCacheKeys, getCacheStats } = require('./services/cache.service');
+const { connectRedis } = require("./config/redis.config");
+const { scheduleCacheWarming } = require("./utils/cacheWarming.util");
+const cacheMiddleware = require("./middleware/cache.middleware");
+const cacheResponse = require("./middleware/cache.middleware");
+const { trackCacheStats, getCacheKeys, getCacheStats } = require("./services/cache.service");
 
-const app = express()
+const app = express();
 
 // Initialize Redis
 connectRedis();
 
-
 // Schedule cache warming
 scheduleCacheWarming();
 
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
-app.use(morgan('dev'));
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
+app.use(morgan("dev"));
 app.use(cookieParser());
-
 
 // Cache stats tracking
 app.use((req, res, next) => {
   trackCacheStats(req);
   next();
 });
- 
-const PORT = 8000 || process.env.PORT
+
+const PORT = 8000 || process.env.PORT;
 
 const corsOption = {
-  origin: [
-    'http://localhost:5173',
-    'https://noaclub.konectile.app',
-    'https://ims.konectile.com'
-  ],
+  origin: ["http://localhost:5173", "https://noaclub.konectile.app", "https://ims.konectile.com"],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control']
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "Cache-Control"],
 };
 
 app.use(cors(corsOption));
 
-app.set('trust proxy', 1);
-
+app.set("trust proxy", 1);
 
 const options = {
   customCss: `
@@ -82,31 +74,28 @@ const options = {
 
 // swagger configration
 const swaggerOptions = {
-  definition: require('./swagger-definition.json'),
-  apis: ['./routes/*.js'],
+  definition: require("./swagger-definition.json"),
+  apis: ["./routes/*.js"],
 };
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
 // Swagger UI route
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec,options));
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, options));
 
 // Add JSON endpoint for Swagger spec
-app.get('/api-docs.json', (req, res) => {
-  res.setHeader('Content-Type', 'application/json');
+app.get("/api-docs.json", (req, res) => {
+  res.setHeader("Content-Type", "application/json");
   res.send(swaggerSpec);
 });
-
 
 // Rate limiting for login endpoint
 const limiter = rateLimit({
   windowMs: 5 * 60 * 1000, // 5 minutes
   max: 20,
-  keyGenerator: (req) => {
-    const forwarded = req.headers['x-forwarded-for'];
-    const clientIp = forwarded 
-      ? forwarded.split(',')[0].trim() 
-      : req.ip;
+  keyGenerator: req => {
+    const forwarded = req.headers["x-forwarded-for"];
+    const clientIp = forwarded ? forwarded.split(",")[0].trim() : req.ip;
     return clientIp;
   },
   handler: (req, res) => {
@@ -115,133 +104,109 @@ const limiter = rateLimit({
       message: "Too many requests, please try again later",
       limit: 20,
       remaining: 0,
-      resetTime: new Date(Date.now() + 5 * 60 * 1000)
+      resetTime: new Date(Date.now() + 5 * 60 * 1000),
     });
   },
   validate: {
     trustProxy: true,
-    xForwardedForHeader: true
-  }
+    xForwardedForHeader: true,
+  },
 });
 
-app.use('/api/v1/auth', limiter);
+app.use("/api/v1/auth", limiter);
 
 // static folder
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use('/backups', express.static(path.join(__dirname, 'backups')));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/backups", express.static(path.join(__dirname, "backups")));
 
 // functional routes
-const userAuthRouter = require('./routes/userAuth')
-const memberProfileRouter = require('./routes/memberProfile');
-const userRoute = require('./routes/user');
-const eventRouter = require('./routes/Events');
-const eventNotification = require('./routes/Notification');
-const clubInventory = require('./routes/ClubInventory');
-const orderByMember = require('./routes/order');
-const transactions = require('./routes/Transaction');
-const activityLog = require('./routes/ActivityLog');
-const agendaCalender = require('./routes/AgendaCalender');
-const partyInvoice = require('./routes/PartyInvoice');
-const devOption = require('./routes/DevOption');
-const loginHistoryRoutes = require('./routes/loginHistory');
-const biometricAuthRoutes = require('./routes/biometricAuth');
-const companyProfileRouter = require('./routes/CompanyProfile');
-const renderPayment = require('./routes/RenderPayment');
+const userAuthRouter = require("./routes/userAuth");
+const memberProfileRouter = require("./routes/memberProfile");
+const userRoute = require("./routes/user");
+const eventRouter = require("./routes/Events");
+const eventNotification = require("./routes/Notification");
+const clubInventory = require("./routes/ClubInventory");
+const orderByMember = require("./routes/order");
+const transactions = require("./routes/Transaction");
+const activityLog = require("./routes/ActivityLog");
+const agendaCalender = require("./routes/AgendaCalender");
+const partyInvoice = require("./routes/PartyInvoice");
+const devOption = require("./routes/DevOption");
+const loginHistoryRoutes = require("./routes/loginHistory");
+const biometricAuthRoutes = require("./routes/biometricAuth");
+const companyProfileRouter = require("./routes/CompanyProfile");
+const renderPayment = require("./routes/RenderPayment");
 
 // database security routes
-const dataBaseSecurity = require('./routes/DataBaseSecurity');
+const dataBaseSecurity = require("./routes/DataBaseSecurity");
 
+const { handleNotFound } = require("./utils/helper");
+const cacheConfig = require("./config/cache.config");
 
-const { handleNotFound } = require('./utils/helper');
-const cacheConfig = require('./config/cache.config');
-
-//prefix Api 
-app.use('/api/v1/auth', userAuthRouter);
-app.use('/api/v1/club-member',memberProfileRouter);
-app.use('/api/v1/app-user',userRoute);
-app.use('/api/v1/event-management',eventRouter);
-app.use('/api/v1/notification',eventNotification)
-app.use('/api/v1/club-inventory',clubInventory);
-app.use('/api/v1/order',orderByMember);
-app.use('/api/v1/transaction',transactions);
-app.use('/api/v1/activity-log',activityLog);
-app.use('/api/v1/agenda-calender',agendaCalender);
-app.use('/api/v1/party-invoice',partyInvoice);
-app.use('/api/v1/dev-option',devOption);
-app.use('/api/v1/login-history', loginHistoryRoutes);
-app.use('/api/v1/biometric', biometricAuthRoutes);
-app.use('/api/v1/company-profile',companyProfileRouter );
-app.use('/api/v1/database',dataBaseSecurity);
-app.use('/api/v1/render',renderPayment);
-
+//prefix Api
+app.use("/api/v1/auth", userAuthRouter);
+app.use("/api/v1/club-member", memberProfileRouter);
+app.use("/api/v1/app-user", userRoute);
+app.use("/api/v1/event-management", eventRouter);
+app.use("/api/v1/notification", eventNotification);
+app.use("/api/v1/club-inventory", clubInventory);
+app.use("/api/v1/order", orderByMember);
+app.use("/api/v1/transaction", transactions);
+app.use("/api/v1/activity-log", activityLog);
+app.use("/api/v1/agenda-calender", agendaCalender);
+app.use("/api/v1/party-invoice", partyInvoice);
+app.use("/api/v1/dev-option", devOption);
+app.use("/api/v1/login-history", loginHistoryRoutes);
+app.use("/api/v1/biometric", biometricAuthRoutes);
+app.use("/api/v1/company-profile", companyProfileRouter);
+app.use("/api/v1/database", dataBaseSecurity);
+app.use("/api/v1/render", renderPayment);
 
 // Apply caching to routes
-app.use('/api/v1/club-member/', 
-  cacheMiddleware({ ttl: cacheConfig.TTL.LONG }),
-  cacheResponse(),
-  memberProfileRouter
-);
+app.use("/api/v1/club-member/", cacheMiddleware({ ttl: cacheConfig.TTL.LONG }), cacheResponse(), memberProfileRouter);
 
-app.use('/api/v1/event-management',
-  cacheMiddleware({ ttl: cacheConfig.TTL.MEDIUM }),
-  cacheResponse(),
-  eventRouter
-);
+app.use("/api/v1/event-management", cacheMiddleware({ ttl: cacheConfig.TTL.MEDIUM }), cacheResponse(), eventRouter);
 
-app.use('/api/v1/club-inventory',
-  cacheMiddleware({ ttl: cacheConfig.TTL.LONG }),
-  cacheResponse(),
-  clubInventory
-);
+app.use("/api/v1/club-inventory", cacheMiddleware({ ttl: cacheConfig.TTL.LONG }), cacheResponse(), clubInventory);
 
-app.use('/api/v1/club-inventory',
-  cacheMiddleware({ ttl: cacheConfig.TTL.LONG }),
-  cacheResponse(),
-  clubInventory
-);
+app.use("/api/v1/club-inventory", cacheMiddleware({ ttl: cacheConfig.TTL.LONG }), cacheResponse(), clubInventory);
 
-app.use('/api/v1/agenda-calender',
-  cacheMiddleware({ ttl: cacheConfig.TTL.SHORT }),
-  cacheResponse(),
-  agendaCalender
-);
+app.use("/api/v1/agenda-calender", cacheMiddleware({ ttl: cacheConfig.TTL.SHORT }), cacheResponse(), agendaCalender);
 
 // Add cache stats endpoint
-app.get('/api/v1/cache/stats', (req, res) => {
+app.get("/api/v1/cache/stats", (req, res) => {
   res.json(getCacheStats());
 });
 
 // Add cache management endpoints (protected in production)
-app.delete('/api/v1/cache/flush', async (req, res) => {
-  if (process.env.NODE_ENV === 'production' && !req.user?.isAdmin) {
-    return res.status(403).json({ message: 'Forbidden' });
+app.delete("/api/v1/cache/flush", async (req, res) => {
+  if (process.env.NODE_ENV === "production" && !req.user?.isAdmin) {
+    return res.status(403).json({ message: "Forbidden" });
   }
-  
+
   const success = await flushCache();
   res.status(success ? 200 : 500).json({ success });
 });
 
-app.get('/api/v1/cache/keys', async (req, res) => {
-  if (process.env.NODE_ENV === 'production' && !req.user?.isAdmin) {
-    return res.status(403).json({ message: 'Forbidden' });
+app.get("/api/v1/cache/keys", async (req, res) => {
+  if (process.env.NODE_ENV === "production" && !req.user?.isAdmin) {
+    return res.status(403).json({ message: "Forbidden" });
   }
-  
-  const keys = await getCacheKeys(req.query.pattern || '*');
+
+  const keys = await getCacheKeys(req.query.pattern || "*");
   res.json({ keys });
 });
 
-
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get("/health", (req, res) => {
   res.status(200).json({
-    status: 'healthy',
-    timestamp: new Date().toISOString()
+    status: "healthy",
+    timestamp: new Date().toISOString(),
   });
 });
 
-
 // Home route - Developer Dashboard
-app.get('/', (req, res) => {
+app.get("/", (req, res) => {
   res.send(`
     <!DOCTYPE html>
     <html lang="en">
@@ -348,8 +313,8 @@ app.get('/', (req, res) => {
           <h2>System Information</h2>
           <p>Welcome to the ClubIms API service. This dashboard provides quick access to important endpoints and system status.</p>
           <ul>
-            <li><strong>Environment:</strong> ${process.env.NODE_ENV || 'development'}</li>
-            <li><strong>Version:</strong> ${process.env.npm_package_version || '1.0.0'}</li>
+            <li><strong>Environment:</strong> ${process.env.NODE_ENV || "development"}</li>
+            <li><strong>Version:</strong> ${process.env.npm_package_version || "1.0.0"}</li>
             <li><strong>Uptime:</strong> ${Math.floor(process.uptime() / 60)} minutes</li>
           </ul>
         </div>
@@ -395,17 +360,18 @@ app.get('/', (req, res) => {
   `);
 });
 
-
 // Start the scheduler for monthyly report generation for members
-initializeMonthlyReports()
+initializeMonthlyReports();
 
 // 404 handler
-app.use('/*',handleNotFound)
+app.use("/*", handleNotFound);
 
 //async error handling
 app.use(errorHandler);
 
 //listning
-app.listen(PORT,()=>{
-    console.log(`🚀 Server is running at http://localhost:${PORT}`);
-})
+app.listen(PORT, () => {
+  console.log(`🚀 Server is running at http://localhost:${PORT}`);
+});
+
+module.exports = app;
